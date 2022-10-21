@@ -1,0 +1,4 @@
+﻿Сборка начата…
+1>------ Сборка начата: проект: Tg_bot_ChatKeeper, Конфигурация: Debug Any CPU ------
+1>Tg_bot_ChatKeeper -> C:\Users\Roman\source\repos\Tg_bot_ChatKeeper\Tg_bot_ChatKeeper\bin\Debug\net6.0\Tg_bot_ChatKeeper.dll
+========== Сборка: успешно: 1, с ошибками: 0, без изменений: 0, пропущено: 0 ==========
