@@ -11,7 +11,7 @@ using var cts = new CancellationTokenSource();
 // StartReceiving does not block the caller thread. Receiving is done on the ThreadPool.
 var receiverOptions = new ReceiverOptions
 {
-    AllowedUpdates = Array.Empty<UpdateType>() // receive all update types
+    AllowedUpdates = new UpdateType[] { UpdateType.ChatJoinRequest } // receive all update types
 };
 botClient.StartReceiving(
     updateHandler: HandleUpdateAsync,
@@ -31,30 +31,105 @@ cts.Cancel();
 
 async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
 {
-    // Only process Message updates: https://core.telegram.org/bots/api#message
-    if (update.Message is not { } message)
+
+    if(update.ChatJoinRequest is { })
     {
-        Console.WriteLine($"Not message 1, is {update.GetType}");
+        botClient.ApproveChatJoinRequest(-1001702257678, update.ChatJoinRequest.From.Id);
+        ChatJoinRequest chatJoinRequest = update.ChatJoinRequest;
+        Console.WriteLine($"Join request detected\n " +
+            $"Master — {chatJoinRequest.From} invited some slave." +
+            $" all stats: 1 {chatJoinRequest.Chat} \n 2 {chatJoinRequest.Bio} \n 3 {chatJoinRequest.InviteLink}");
         return;
     }
 
-    botClient.DeleteMessageAsync(message.Chat.Id, message.MessageId);
-    //if (message.Sticker is not { } messageSticker)
-    //{
-    //    Message sentMessage = await botClient.SendStickerAsync(
-    //    chatId: message.Chat.Id,
-    //    sticker: message.Sticker.FileId,
-    //    cancellationToken: cancellationToken);
-    //}
+    if (update.ChosenInlineResult is { })
+    {
+        var chosenInlineResult = update.ChosenInlineResult;
+        Console.WriteLine($"Chosen inline result {chosenInlineResult}\n " +
+            $"Averysing I interesting in \n From — {chosenInlineResult.From.Username}." +
+            $" all stats: 111 {chosenInlineResult.Query} \n 112 {chosenInlineResult.InlineMessageId}");
+    }
+
+    //Try all updates
+    if (update.InlineQuery is { })
+    {
+        var inlineQuery = update.InlineQuery;
+        Console.WriteLine($"inlineQuery {inlineQuery.From.Username} (1)");
+    }
+    else if (update.ChosenInlineResult is { })
+    {
+        Console.WriteLine("Chosen Inline Result (2)");
+    }
+    else if (update.ChatMember is { })
+    {
+        Console.WriteLine("chat member (9)");
+    }
+    else if (update.CallbackQuery is { })
+    {
+        Console.WriteLine("call back query (3)");
+    }
+    else if (update.ShippingQuery is { })
+    {
+        Console.WriteLine("Shipping query (4)");
+    }
+    else if (update.PreCheckoutQuery is { })
+    {
+        Console.WriteLine("preChackout query (5)");
+    }
+    else if (update.MyChatMember is { })
+    {
+        Console.WriteLine("My chat member (8)");
+    }
+    else if (update.Poll is { })
+    {
+        Console.WriteLine("Poll (6)");
+    }
+    else if (update.PollAnswer is { })
+    {
+        Console.WriteLine("Poll Answer (7)");
+    }
+    else if (update.ChatJoinRequest is { })
+    {
+        Console.WriteLine("Chat Join Request (10)");
+    }
+    else
+    {
+        Console.WriteLine($"Update ID - {update.Id}");
+    }
+
+
+    // Only process Message
+    if (update.Message is not { } message)
+    {
+        Console.WriteLine($"Not message, is type {update.GetType}, update Id {update.Id}");
+        return;
+    }
+
+    //botClient.DeleteMessageAsync(message.Chat.Id, message.MessageId);
 
     // Only process text messages
     if (message.Text is not { } messageText)
     {
+        if (update.Message.NewChatMembers is { } )
+        {
+            //var updatesArray = botClient.GetUpdatesAsync(null,null, null, "ChatJoinRequest" , cts.Token);
+
+            var newCatMember = update.Message.NewChatMembers;
+
+            Message sentMessage = await botClient.SendTextMessageAsync(
+            chatId: message.Chat.Id,
+            text: $"New slave in the gym \ngreetings {update.Message.From.Username} go take 300 buks" ,
+            cancellationToken: cancellationToken);
+
+            Console.WriteLine($"New slaves in the gym\n " +
+                $"Averysing I interesting in \n New chat member JoinGoup 10 — {newCatMember}." +
+                $" all stats: 11 {newCatMember.ToString} \n 12 {newCatMember.GetType}");
+        }
+
         Console.WriteLine($"Not text 2, is {update.GetType}, {message.Type}");
         return;
     }
 
-        
 
     var chatId = message.Chat.Id;
 
@@ -83,10 +158,25 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     }
     else
     {
-        Message sentMessage = await botClient.SendTextMessageAsync(
-        chatId: chatId,
-        text: messageText,
-        cancellationToken: cancellationToken);
+        //Message sentMessage = await botClient.SendTextMessageAsync(
+        //chatId: chatId,
+        //text: $"{message.From.FirstName} say \n" + messageText,
+        //cancellationToken: cancellationToken);
+        if (message.From.Id == 385246590)
+        {
+            Message sentMessage = await botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: $"Mr {message.From.Username} say \n" + messageText,
+            cancellationToken: cancellationToken);
+        }
+        else
+        {
+            Message sentMessage = await botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: $"Slave {message.From.FirstName} say \n" + messageText,
+            cancellationToken: cancellationToken);
+        }
+        
     }
 
     Console.WriteLine($"Received a '{messageText}' message in chat {chatId}.");
