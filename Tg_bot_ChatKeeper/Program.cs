@@ -1,6 +1,7 @@
 ﻿using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
+using Telegram.Bot.Requests;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
@@ -8,10 +9,14 @@ var botClient = new TelegramBotClient("5622869579:AAGr07dfWYGgw-KWzQhALiZyq8TrVJ
 
 using var cts = new CancellationTokenSource();
 
+List <long> userIdSendMsg = new List<long>();
+List<string> userSendMsgLinkName = new List<string>();
+List<int> userSendMsgLinkCount = new List<int>();
+
 // StartReceiving does not block the caller thread. Receiving is done on the ThreadPool.
 var receiverOptions = new ReceiverOptions
 {
-    AllowedUpdates = new UpdateType[] { UpdateType.ChatJoinRequest } // receive all update types
+    AllowedUpdates = Array.Empty<UpdateType>() // receive all update types
 };
 botClient.StartReceiving(
     updateHandler: HandleUpdateAsync,
@@ -31,17 +36,6 @@ cts.Cancel();
 
 async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
 {
-
-    if(update.ChatJoinRequest is { })
-    {
-        botClient.ApproveChatJoinRequest(-1001702257678, update.ChatJoinRequest.From.Id);
-        ChatJoinRequest chatJoinRequest = update.ChatJoinRequest;
-        Console.WriteLine($"Join request detected\n " +
-            $"Master — {chatJoinRequest.From} invited some slave." +
-            $" all stats: 1 {chatJoinRequest.Chat} \n 2 {chatJoinRequest.Bio} \n 3 {chatJoinRequest.InviteLink}");
-        return;
-    }
-
     if (update.ChosenInlineResult is { })
     {
         var chosenInlineResult = update.ChosenInlineResult;
@@ -88,101 +82,100 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     {
         Console.WriteLine("Poll Answer (7)");
     }
-    else if (update.ChatJoinRequest is { })
+    else if (update.ChatJoinRequest is { } joinRequest)
     {
         Console.WriteLine("Chat Join Request (10)");
+        if (userSendMsgLinkName.Contains(joinRequest.InviteLink.InviteLink))
+        {
+            userSendMsgLinkCount[userSendMsgLinkName.IndexOf(joinRequest.InviteLink.InviteLink)]++;
+            Console.WriteLine($"Count invited people {userSendMsgLinkCount[userSendMsgLinkName.IndexOf(joinRequest.InviteLink.InviteLink)]}," +
+            $"Index {userSendMsgLinkName.IndexOf(joinRequest.InviteLink.InviteLink)}");
+        }
+        else { Console.WriteLine($"Not found {joinRequest.InviteLink.InviteLink}"); }
+
+        botClient.ApproveChatJoinRequest(joinRequest.Chat.Id, joinRequest.From.Id);
+    }
+    else if (update.ChatMember is { })
+    {
+        Console.WriteLine("Chat ChatMember (11)");
     }
     else
     {
         Console.WriteLine($"Update ID - {update.Id}");
     }
 
-
-    // Only process Message
+    // Only process Message updates: https://core.telegram.org/bots/api#message
     if (update.Message is not { } message)
     {
-        Console.WriteLine($"Not message, is type {update.GetType}, update Id {update.Id}");
-        return;
-    }
-
-    //botClient.DeleteMessageAsync(message.Chat.Id, message.MessageId);
-
-    // Only process text messages
-    if (message.Text is not { } messageText)
-    {
-        if (update.Message.NewChatMembers is { } )
-        {
-            //var updatesArray = botClient.GetUpdatesAsync(null,null, null, "ChatJoinRequest" , cts.Token);
-
-            var newCatMember = update.Message.NewChatMembers;
-
-            Message sentMessage = await botClient.SendTextMessageAsync(
-            chatId: message.Chat.Id,
-            text: $"New slave in the gym \ngreetings {update.Message.From.Username} go take 300 buks" ,
-            cancellationToken: cancellationToken);
-
-            Console.WriteLine($"New slaves in the gym\n " +
-                $"Averysing I interesting in \n New chat member JoinGoup 10 — {newCatMember}." +
-                $" all stats: 11 {newCatMember.ToString} \n 12 {newCatMember.GetType}");
-        }
-
-        Console.WriteLine($"Not text 2, is {update.GetType}, {message.Type}");
+        Console.WriteLine($"Not message 1, is {update.GetType}");
         return;
     }
 
 
     var chatId = message.Chat.Id;
+    int j;
+    Console.WriteLine("Message from " + update.Message.From.FirstName);
 
-    string[] gachiStickers = new string[] {
-        "https://tlgrm.eu/_/stickers/06d/991/06d991f7-564f-47cd-8180-585cd0056a42/2.webp",
-        "https://tlgrm.eu/_/stickers/06d/991/06d991f7-564f-47cd-8180-585cd0056a42/5.webp",
-        "https://tlgrm.eu/_/stickers/06d/991/06d991f7-564f-47cd-8180-585cd0056a42/6.webp"
-    };
+    //botClient.DeleteMessageAsync(message.Chat.Id, message.MessageId);
 
-    if (messageText.Contains("gachi") || messageText.Contains("Gachi"))
+    if (message.NewChatMembers is { })
     {
-        Message sentMessage = await botClient.SendStickerAsync(
-        chatId: chatId,
-        sticker: gachiStickers[new Random().Next(gachiStickers.Length)],
-        cancellationToken: cancellationToken);
-
-    }
-    else if (messageText.Contains("?"))
-    {
-        Message sentMessage = await botClient.SendAnimationAsync(
-        chatId: chatId,
-        animation: "https://tenor.com/view/nodding-kermit-uh-huh-gif-19083131",
-        caption: "",
-        cancellationToken: cancellationToken);
-
-    }
-    else
-    {
-        //Message sentMessage = await botClient.SendTextMessageAsync(
-        //chatId: chatId,
-        //text: $"{message.From.FirstName} say \n" + messageText,
-        //cancellationToken: cancellationToken);
-        if (message.From.Id == 385246590)
+        User[] newMembers = message.NewChatMembers;
+        for (int i = 0; i < newMembers.Length; i++)
         {
-            Message sentMessage = await botClient.SendTextMessageAsync(
-            chatId: chatId,
-            text: $"Mr {message.From.Username} say \n" + messageText,
-            cancellationToken: cancellationToken);
+            userIdSendMsg.Add(newMembers[i].Id);
+            ChatInviteLink link = await botClient.CreateChatInviteLinkAsync(chatId, null, null, null, true);
+            
+            Console.WriteLine("New member\n Link: " + link.InviteLink);
+            userSendMsgLinkName.Add(link.InviteLink);
+            userSendMsgLinkCount.Add(0);
         }
-        else
-        {
-            Message sentMessage = await botClient.SendTextMessageAsync(
-            chatId: chatId,
-            text: $"Slave {message.From.FirstName} say \n" + messageText,
-            cancellationToken: cancellationToken);
-        }
-        
     }
+    else if (message.LeftChatMember is { })
+    {
+        if (userIdSendMsg.Contains(message.From.Id))
+        {
+            User leftMember = message.LeftChatMember;
+            int userNumber = userIdSendMsg.IndexOf(leftMember.Id);
+            if (userSendMsgLinkName[userNumber] is not null)
+            {
+                botClient.RevokeChatInviteLinkAsync(chatId, userSendMsgLinkName[userNumber]);
+                userIdSendMsg.RemoveAt(userNumber);
+                userSendMsgLinkName.RemoveAt(userNumber);
+                userSendMsgLinkCount.RemoveAt(userNumber);
+            }
+        }
+        Console.WriteLine("Left member");
+    }
+
+    // Only process text messages
+    if (message.Text is not { } messageText)
+    {
+        Console.WriteLine($"Not text 2, is {update.GetType}, {message.Type}");
+        return;
+    }
+
+
+    if (userIdSendMsg.Contains(message.From.Id))
+    {
+        string messageAnswer = "Your invite link: " + userSendMsgLinkName[userIdSendMsg.IndexOf(message.From.Id)];
+
+        Message sentMessage = await botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: messageAnswer,
+            cancellationToken: cancellationToken);
+    }
+
+
+    //    Message sentMessage = await botClient.SendTextMessageAsync(
+    //    chatId: chatId,
+    //    text: messageText,
+    //    cancellationToken: cancellationToken);
 
     Console.WriteLine($"Received a '{messageText}' message in chat {chatId}.");
 
     // Echo received message text
-    
+
 }
 
 Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
@@ -195,5 +188,6 @@ Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, 
     };
 
     Console.WriteLine(ErrorMessage);
-    return Task.CompletedTask;
+    return
+ Task.CompletedTask;
 }
